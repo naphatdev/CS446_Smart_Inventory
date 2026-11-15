@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="th" class="scroll-smooth">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Smart Inventory</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com/3.4.16"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+  tailwind.config = {
+    darkMode: "media",
+    theme: { extend: { fontFamily: { sans: ["Inter", "Noto Sans Thai", "system-ui", "sans-serif"] } } },
+  };
+</script>
+<style type="text/tailwindcss">
+  @layer components {
+    .card { @apply rounded-2xl border border-slate-200/80 bg-white shadow-sm shadow-slate-200/50 dark:border-slate-700/60 dark:bg-slate-800/80 dark:shadow-none; }
+    .btn { @apply inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-indigo-300 hover:bg-indigo-50 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700; }
+    .btn-primary { @apply border-transparent bg-gradient-to-r from-indigo-600 to-violet-600 text-white hover:from-indigo-500 hover:to-violet-500 hover:bg-transparent hover:border-transparent dark:bg-transparent dark:hover:bg-transparent; }
+    .btn-danger { @apply text-rose-600 hover:border-rose-300 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40; }
+    .btn-xs { @apply rounded-lg px-2.5 py-1 text-xs; }
+    .th { @apply px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400; }
+    .td { @apply px-3 py-2.5; }
+    .input { @apply mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 disabled:opacity-60 dark:border-slate-600 dark:bg-slate-900; }
+  }
+  body { font-family: Inter, "Noto Sans Thai", system-ui, sans-serif; }
+  @keyframes pop { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
+  .pop { animation: pop .35s ease both; }
+  dialog::backdrop { background: rgb(15 23 42 / .55); backdrop-filter: blur(3px); }
+</style>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-800 antialiased dark:bg-slate-900 dark:text-slate-100">
+
+<!-- hero / top bar -->
+<header class="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-600 text-white">
+  <div class="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-white/10 blur-3xl"></div>
+  <div class="pointer-events-none absolute -bottom-32 left-10 h-72 w-72 rounded-full bg-cyan-300/20 blur-3xl"></div>
+  <div class="relative mx-auto max-w-7xl px-4 pb-24 pt-6 sm:px-6">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="grid h-11 w-11 place-items-center rounded-2xl bg-white/20 ring-1 ring-white/30 backdrop-blur">
+          <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9"/></svg>
+        </div>
+        <div>
+          <h1 class="text-xl font-extrabold tracking-tight sm:text-2xl">Smart Inventory</h1>
+          <p class="text-xs text-white/75 sm:text-sm">Auto Restock Alert · ตรวจสต็อกและค่าเงินอัตโนมัติ</p>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-center gap-2 text-sm" id="pills"></div>
+    </div>
+
+    <div class="mt-7 flex flex-wrap gap-2.5">
+      <button id="btnSim" class="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-indigo-700 shadow-lg shadow-indigo-900/20 transition hover:-translate-y-0.5 hover:bg-indigo-50 active:scale-95 disabled:opacity-60">
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z"/></svg>
+        Simulate 1 day</button>
+      <button id="btnCheck" class="inline-flex items-center gap-2 rounded-xl bg-white/15 px-4 py-2.5 text-sm font-semibold ring-1 ring-white/30 backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/25 active:scale-95 disabled:opacity-60">
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"/></svg>
+        Run check now</button>
+      <button id="btnFx" class="inline-flex items-center gap-2 rounded-xl bg-white/15 px-4 py-2.5 text-sm font-semibold ring-1 ring-white/30 backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/25 active:scale-95 disabled:opacity-60">
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992V4.356M2.985 19.644v-4.992h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182"/></svg>
+        Refresh rate</button>
+      <button id="btnDown" class="inline-flex items-center gap-2 rounded-xl bg-white/15 px-4 py-2.5 text-sm font-semibold ring-1 ring-white/30 backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/25 active:scale-95 disabled:opacity-60">API down: off</button>
+      <button id="btnReset" class="ml-auto inline-flex items-center gap-2 rounded-xl bg-rose-500/90 px-4 py-2.5 text-sm font-semibold shadow-lg shadow-rose-900/20 transition hover:-translate-y-0.5 hover:bg-rose-500 active:scale-95 disabled:opacity-60">Reset demo data</button>
+    </div>
+  </div>
+</header>
+
+<main class="relative mx-auto -mt-16 max-w-7xl space-y-5 px-4 pb-16 sm:px-6">
+  <!-- stat cards -->
+  <section id="cards" class="grid grid-cols-2 gap-4 lg:grid-cols-5"></section>
+
+  <!-- stock + chart -->
+  <section class="grid gap-5 lg:grid-cols-5">
+    <div class="card p-5 lg:col-span-3">
+      <div class="mb-4 flex items-center justify-between">
+        <h2 class="text-base font-bold">สต็อกสินค้า</h2>
+        <span class="text-xs text-slate-500 dark:text-slate-400">แถบ = สต็อก เทียบสต็อกเป้าหมาย</span>
+      </div>
+      <div id="bars" class="space-y-4"></div>
+    </div>
+    <div class="card p-5 lg:col-span-2">
+      <h2 class="mb-4 text-base font-bold">ยอดขาย 7 วันล่าสุด</h2>
+      <div class="relative h-64"><canvas id="chart"></canvas></div>
+    </div>
+  </section>
+
+  <!-- restock + alerts -->
+  <section class="grid gap-5 lg:grid-cols-2">
+    <div class="card p-5">
+      <h2 class="mb-3 text-base font-bold">รายการแนะนำสั่งซื้อ</h2>
+      <div id="restock" class="overflow-x-auto"></div>
+    </div>
+    <div class="card p-5">
+      <h2 class="mb-3 text-base font-bold">ประวัติการแจ้งเตือน</h2>
+      <div id="alerts" class="max-h-80 overflow-auto"></div>
+    </div>
+  </section>
+
+  <!-- manage -->
+  <section class="card p-5">
+    <div class="mb-3 flex items-center justify-between">
+      <h2 class="text-base font-bold">จัดการสินค้า</h2>
+      <button id="btnAdd" class="btn btn-primary btn-xs !px-3.5 !py-2 !text-sm">+ เพิ่มสินค้า</button>
+    </div>
+    <div id="manage" class="overflow-x-auto"></div>
+  </section>
+</main>
+
+<dialog id="dlg" class="w-[min(420px,92vw)] rounded-2xl border border-slate-200 bg-white p-0 text-slate-800 shadow-2xl dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+  <form method="dialog" id="form" class="p-6">
+    <h2 id="dlgTitle" class="text-lg font-bold">สินค้า</h2>
+    <div class="mt-4 grid grid-cols-2 gap-3 text-sm">
+      <label class="col-span-1 font-medium">SKU<input name="sku" required class="input"></label>
+      <label class="col-span-1 font-medium">ชื่อสินค้า<input name="name" required class="input"></label>
+      <label class="font-medium">สต็อก<input name="stock" type="number" min="0" step="1" required class="input"></label>
+      <label class="font-medium">Minimum Stock<input name="min_stock" type="number" min="0" step="1" required class="input"></label>
+      <label class="col-span-2 font-medium">ต้นทุน (USD)<input name="cost_usd" type="number" min="0" step="0.01" required class="input"></label>
+    </div>
+    <div class="mt-6 flex justify-end gap-2">
+      <button type="button" id="dlgCancel" class="btn">ยกเลิก</button>
+      <button class="btn btn-primary" type="submit">บันทึก</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="qdlg" class="w-[min(360px,92vw)] rounded-2xl border border-slate-200 bg-white p-0 text-slate-800 shadow-2xl dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+  <form method="dialog" id="qform" class="p-6">
+    <h2 id="qTitle" class="text-lg font-bold"></h2>
+    <p id="qHint" class="mt-1 text-sm text-slate-500 dark:text-slate-400"></p>
+    <input id="qInput" type="number" min="1" step="1" required class="input mt-4 text-lg">
+    <div class="mt-6 flex justify-end gap-2">
+      <button type="button" id="qCancel" class="btn">ยกเลิก</button>
+      <button class="btn btn-primary" type="submit">ตกลง</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="toast" class="pointer-events-none fixed bottom-5 left-1/2 z-50 -translate-x-1/2 translate-y-4 rounded-xl px-5 py-3 text-sm font-medium opacity-0 shadow-xl transition-all duration-300"></div>
+
+<script>
+// Cloud: set to the Lambda Function URL (no trailing slash).
+// Empty = auto: same origin when served by backend/local_server.py, else http://localhost:8000.
+let API_URL = "";
+if (!API_URL && (location.protocol === "file:" || (location.port && location.port !== "8000"))) API_URL = "http://localhost:8000";
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const thb = (n) => Number(n).toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const ST = {
+  "In Stock":     { text: "text-emerald-600 dark:text-emerald-400", badge: "bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-500/10 dark:text-emerald-300", bar: "from-emerald-400 to-emerald-600", label: "ปกติ" },
+  "Low Stock":    { text: "text-amber-600 dark:text-amber-400",     badge: "bg-amber-50 text-amber-700 ring-amber-600/20 dark:bg-amber-500/10 dark:text-amber-300",       bar: "from-amber-300 to-amber-500",     label: "Low Stock" },
+  "Out of Stock": { text: "text-rose-600 dark:text-rose-400",       badge: "bg-rose-50 text-rose-700 ring-rose-600/20 dark:bg-rose-500/10 dark:text-rose-300",           bar: "from-rose-400 to-rose-600",       label: "Out of Stock" },
+};
+const ALERT_STYLE = {
+  LOW_STOCK:    "bg-amber-50 text-amber-700 ring-amber-600/20 dark:bg-amber-500/10 dark:text-amber-300",
+  OUT_OF_STOCK: "bg-rose-50 text-rose-700 ring-rose-600/20 dark:bg-rose-500/10 dark:text-rose-300",
+  FX_COST:      "bg-sky-50 text-sky-700 ring-sky-600/20 dark:bg-sky-500/10 dark:text-sky-300",
+};
+const COLORS = ["#6366f1", "#10b981", "#f59e0b", "#f43f5e", "#06b6d4", "#a855f7"];
+let data = null, chart = null, editing = null, qAction = null;
+
+async function api(method, path, body) {
+  const res = await fetch(API_URL + path, {
+    method,
+    headers: body ? { "Content-Type": "application/json" } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json.error || res.statusText);
+  return json;
+}
+
+let toastTimer;
+function toast(msg, kind = "ok") {
+  const t = $("toast");
+  t.className = "pointer-events-none fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-xl px-5 py-3 text-sm font-medium shadow-xl transition-all duration-300 translate-y-0 opacity-100 " +
+    (kind === "ok" ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900" : "bg-rose-600 text-white");
+  t.textContent = msg;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.classList.add("translate-y-4", "opacity-0"); t.classList.remove("translate-y-0", "opacity-100"); }, 2800);
+}
+
+async function act(btn, fn, okMsg) {
+  if (btn) btn.disabled = true;
+  try {
+    const r = await fn();
+    await load();
+    const m = typeof okMsg === "function" ? okMsg(r) : okMsg;
+    if (m) toast(m);
+  } catch (e) { toast("ผิดพลาด: " + e.message, "err"); }
+  finally { if (btn) btn.disabled = false; }
+}
+
+async function load() {
+  try { data = await api("GET", "/dashboard"); render(); }
+  catch (e) { toast("เชื่อมต่อ backend ไม่ได้ (" + API_URL + "): " + e.message, "err"); }
+}
+
+const ICONS = {
+  box: "M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9",
+  ok: "M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
+  warn: "M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z",
+  out: "M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
+  coin: "M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
+};
+const icon = (p, c = "h-5 w-5") => `<svg class="${c}" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="${p}"/></svg>`;
+
+function render() {
+  const { summary: s, rate, products } = data;
+  const when = rate.timestamp ? new Date(rate.timestamp).toLocaleString("th-TH") : "ยังไม่เคยดึงได้";
+  $("pills").innerHTML = `
+    <span class="rounded-full bg-white/15 px-3 py-1.5 ring-1 ring-white/25 backdrop-blur">📅 ${esc(data.today)}</span>
+    <span class="rounded-full bg-white/15 px-3 py-1.5 ring-1 ring-white/25 backdrop-blur" title="อัปเดต ${esc(when)}">
+      💱 USD/THB <b>${Number(rate.rate).toFixed(4)}</b></span>
+    ${rate.stale
+      ? `<span class="rounded-full bg-amber-400 px-3 py-1.5 font-semibold text-amber-950 shadow">⚠ ข้อมูลเก่า</span>`
+      : `<span class="rounded-full bg-emerald-400/90 px-3 py-1.5 font-semibold text-emerald-950">● live</span>`}`;
+  $("btnDown").textContent = "API down: " + (rate.api_down_switch ? "ON" : "off");
+  $("btnDown").classList.toggle("!bg-amber-400", rate.api_down_switch);
+  $("btnDown").classList.toggle("!text-amber-950", rate.api_down_switch);
+
+  const cards = [
+    ["สินค้าทั้งหมด", s.total, "box", "bg-indigo-100 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-300", ""],
+    ["ปกติ", s.in_stock, "ok", "bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-300", ""],
+    ["Low Stock", s.low, "warn", "bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-300", ""],
+    ["Out of Stock", s.out, "out", "bg-rose-100 text-rose-600 dark:bg-rose-500/20 dark:text-rose-300", ""],
+    ["มูลค่าสต็อกรวม", "฿" + thb(s.stock_value_thb), "coin", "bg-violet-100 text-violet-600 dark:bg-violet-500/20 dark:text-violet-300", "col-span-2 lg:col-span-1"],
+  ];
+  $("cards").innerHTML = cards.map(([l, n, ic, tone, span], i) => `
+    <div class="card pop p-4 transition hover:-translate-y-0.5 hover:shadow-md ${span}" style="animation-delay:${i * 50}ms">
+      <div class="flex items-center justify-between">
+        <span class="text-sm text-slate-500 dark:text-slate-400">${l}</span>
+        <span class="grid h-9 w-9 place-items-center rounded-xl ${tone}">${icon(ICONS[ic])}</span>
+      </div>
+      <div class="mt-2 text-2xl font-extrabold tracking-tight sm:text-3xl">${n}</div>
+    </div>`).join("");
+
+  $("bars").innerHTML = products.length ? products.map((p) => {
+    const st = ST[p.status];
+    const pct = Math.max(3, Math.min(100, (p.stock / Math.max(p.target_stock, 1)) * 100));
+    const left = p.days_left === null ? "ไม่ทราบ" : `หมดใน ${p.days_left} วัน`;
+    return `<div class="pop rounded-xl p-3 transition hover:bg-slate-50 dark:hover:bg-slate-700/40">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div><span class="font-semibold">${esc(p.name)}</span> <span class="ml-1 text-xs text-slate-400">${esc(p.sku)}</span></div>
+        <span class="rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${st.badge}">${st.label}</span>
+      </div>
+      <div class="mt-2 h-3 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+        <div class="h-full rounded-full bg-gradient-to-r ${st.bar} transition-all duration-500" style="width:${pct}%"></div>
+      </div>
+      <div class="mt-1.5 flex justify-between text-xs text-slate-500 dark:text-slate-400">
+        <span>สต็อก <b class="text-slate-700 dark:text-slate-200">${p.stock}</b> / min ${p.min_stock} · เป้า ${p.target_stock}</span>
+        <span class="font-semibold ${st.text}">⏳ ${left}</span>
+      </div>
+    </div>`;
+  }).join("") : empty("ยังไม่มีสินค้า");
+
+  $("restock").innerHTML = data.restock.length
+    ? `<table class="w-full text-sm"><thead><tr><th class="th">สินค้า</th><th class="th text-right">สั่ง (ชิ้น)</th><th class="th text-right">฿/ชิ้น</th><th class="th text-right">รวม ฿</th></tr></thead><tbody class="divide-y divide-slate-100 dark:divide-slate-700">` +
+      data.restock.map((p) => `<tr><td class="td font-medium">${esc(p.name)}</td><td class="td text-right font-bold text-indigo-600 dark:text-indigo-300">${p.reorder_qty}</td>
+        <td class="td text-right">${thb(p.cost_thb)}</td><td class="td text-right font-semibold">${thb(p.reorder_cost_thb)}</td></tr>`).join("") +
+      `</tbody></table>` + (rate.stale ? `<p class="mt-2 text-xs text-amber-600">⚠ ต้นทุนคำนวณจากอัตราเก่า</p>` : "")
+    : empty("ยังไม่ต้องสั่งสินค้าเพิ่ม 🎉");
+
+  $("alerts").innerHTML = data.alerts.length
+    ? `<ul class="space-y-2">` + data.alerts.map((a) => `<li class="rounded-xl border border-slate-100 p-3 dark:border-slate-700">
+        <div class="flex items-center justify-between gap-2">
+          <span class="rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ${ALERT_STYLE[a.type] || ""}">${esc(a.type)}</span>
+          <span class="text-xs text-slate-400">${esc(new Date(a.timestamp).toLocaleTimeString("th-TH"))}</span>
+        </div>
+        <p class="mt-1.5 text-sm text-slate-600 dark:text-slate-300">${esc(a.message)}</p></li>`).join("") + `</ul>`
+    : empty("ยังไม่มีการแจ้งเตือน");
+
+  $("manage").innerHTML = products.length
+    ? `<table class="w-full text-sm"><thead><tr><th class="th">SKU</th><th class="th">ชื่อ</th><th class="th text-right">สต็อก</th><th class="th text-right">Min</th>
+        <th class="th text-right">USD</th><th class="th text-right">฿</th><th class="th"></th></tr></thead>
+        <tbody class="divide-y divide-slate-100 dark:divide-slate-700">` +
+      products.map((p) => `<tr class="transition hover:bg-slate-50 dark:hover:bg-slate-700/40">
+        <td class="td font-mono text-xs">${esc(p.sku)}</td><td class="td font-medium">${esc(p.name)}</td>
+        <td class="td text-right font-semibold">${p.stock}</td><td class="td text-right">${p.min_stock}</td>
+        <td class="td text-right">${p.cost_usd.toFixed(2)}</td><td class="td text-right">${thb(p.cost_thb)}</td>
+        <td class="td whitespace-nowrap text-right">
+          <button class="btn btn-primary btn-xs" data-a="sell" data-s="${esc(p.sku)}" ${p.stock < 1 ? "disabled" : ""}>Sell</button>
+          <button class="btn btn-xs" data-a="restock" data-s="${esc(p.sku)}">Restock</button>
+          <button class="btn btn-xs" data-a="edit" data-s="${esc(p.sku)}">แก้ไข</button>
+          <button class="btn btn-danger btn-xs" data-a="del" data-s="${esc(p.sku)}">ลบ</button></td></tr>`).join("") +
+      `</tbody></table>`
+    : empty("ยังไม่มีสินค้า");
+
+  drawChart();
+}
+const empty = (t) => `<div class="grid place-items-center rounded-xl border border-dashed border-slate-200 py-8 text-sm text-slate-400 dark:border-slate-700">${t}</div>`;
+
+function drawChart() {
+  const c = data.chart;
+  const ds = c.series.map((s, i) => ({ label: s.name, data: s.data, backgroundColor: COLORS[i % COLORS.length], borderRadius: 6, maxBarThickness: 28 }));
+  const labels = c.dates.map((d) => d.slice(5));
+  if (chart) { chart.data.labels = labels; chart.data.datasets = ds; chart.update(); return; }
+  if (typeof Chart === "undefined") return;
+  const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+  Chart.defaults.color = dark ? "#94a3b8" : "#64748b";
+  Chart.defaults.font.family = "Inter, 'Noto Sans Thai', sans-serif";
+  chart = new Chart($("chart"), {
+    type: "bar",
+    data: { labels, datasets: ds },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: "bottom", labels: { usePointStyle: true, boxWidth: 8 } } },
+      scales: {
+        x: { stacked: true, grid: { display: false } },
+        y: { stacked: true, beginAtZero: true, ticks: { precision: 0 }, grid: { color: dark ? "#334155" : "#e2e8f0" } },
+      },
+    },
+  });
+}
+
+// ---- quantity dialog (replaces prompt()) ----
+function askQty(title, hint, def, cb) {
+  $("qTitle").textContent = title; $("qHint").textContent = hint; $("qInput").value = def;
+  qAction = cb; $("qdlg").showModal(); $("qInput").select();
+}
+$("qform").addEventListener("submit", () => { const v = Number($("qInput").value); if (qAction && v > 0) qAction(v); });
+$("qCancel").onclick = () => $("qdlg").close();
+
+$("manage").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-a]");
+  if (!b) return;
+  const sku = b.dataset.s, p = data.products.find((x) => x.sku === sku);
+  const enc = encodeURIComponent(sku);
+  if (b.dataset.a === "sell") {
+    askQty(`ขาย ${p.name}`, `คงเหลือ ${p.stock} ชิ้น`, 1, (q) => act(b, () => api("POST", `/products/${enc}/sell`, { qty: q }), "บันทึกการขายแล้ว"));
+  } else if (b.dataset.a === "restock") {
+    askQty(`สั่งซื้อ ${p.name}`, "จะบันทึกอัตราแลกเปลี่ยนปัจจุบันเป็นอัตราอ้างอิงด้วย", p.reorder_qty || 10,
+      (q) => act(b, () => api("POST", `/products/${enc}/restock`, { qty: q }), "เติมสต็อกแล้ว"));
+  } else if (b.dataset.a === "edit") openForm(p);
+  else if (b.dataset.a === "del" && confirm(`ลบ ${p.name}?`)) act(b, () => api("DELETE", `/products/${enc}`), "ลบแล้ว");
+});
+
+function openForm(p) {
+  editing = p ? p.sku : null;
+  $("dlgTitle").textContent = p ? "แก้ไขสินค้า" : "เพิ่มสินค้า";
+  const f = $("form");
+  for (const k of ["sku", "name", "stock", "min_stock", "cost_usd"]) f.elements[k].value = p ? p[k] : "";
+  f.elements.sku.disabled = !!p;
+  $("dlg").showModal();
+}
+$("btnAdd").onclick = () => openForm(null);
+$("dlgCancel").onclick = () => $("dlg").close();
+$("form").addEventListener("submit", (e) => {
+  const f = e.target.elements;
+  const body = { sku: f.sku.value, name: f.name.value, stock: Number(f.stock.value),
+                 min_stock: Number(f.min_stock.value), cost_usd: Number(f.cost_usd.value) };
+  const req = editing ? () => api("PUT", `/products/${encodeURIComponent(editing)}`, body) : () => api("POST", "/products", body);
+  act(null, req, "บันทึกแล้ว");
+});
+
+$("btnSim").onclick = (e) => act(e.currentTarget, () => api("POST", "/simulate"), "จำลองยอดขาย 1 วันแล้ว");
+$("btnCheck").onclick = (e) => act(e.currentTarget, () => api("POST", "/check"),
+  (r) => r.alerts.length ? `ส่งแจ้งเตือน ${r.alerts.length} รายการ` : "ตรวจแล้ว ไม่มีการแจ้งเตือนใหม่");
+$("btnFx").onclick = (e) => act(e.currentTarget, () => api("POST", "/fx/refresh"), (r) => r.stale ? "ดึงอัตราไม่ได้ ใช้ค่าล่าสุด" : "อัปเดตอัตราแลกเปลี่ยนแล้ว");
+$("btnDown").onclick = (e) => act(e.currentTarget, () => api("POST", "/fx/fail", { down: !data.rate.api_down_switch }), "สลับโหมด API ล่มแล้ว");
+$("btnReset").onclick = (e) => { if (confirm("รีเซ็ตข้อมูลตัวอย่างทั้งหมด?")) act(e.currentTarget, () => api("POST", "/reset"), "รีเซ็ตแล้ว"); };
+
+load();
+setInterval(load, 15000);
+</script>
+</body>
+</html>
