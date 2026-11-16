@@ -123,7 +123,6 @@ def create_product(body, store=None):
         raise ApiError("sku already exists", 409)
     p = {"sku": sku, **_validate(body)}
     p.update({"last_status": core.STATUS_IN, "ref_rate": current_rate(store)["rate"], "fx_alerted": False})
-    p["last_status"] = core.compute_status(p["stock"], p["min_stock"], 0)
     store.put_product(p)
     return list_one(store, sku)
 

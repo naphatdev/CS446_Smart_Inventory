@@ -1,6 +1,6 @@
 # CS446 Smart Inventory & Auto Restock Alert
 
-Web app: stock check, restock analysis, USD/THB alerts. See `../Smart-Inventory-Proposal.md`.
+Web app: stock check, restock analysis, USD/THB alerts.
 
 ## Run locally (no AWS needed)
 ```
